@@ -160,6 +160,9 @@ class ConferenceViewModel(application: Application) : AndroidViewModel(applicati
             override fun onSuccess(front: Boolean) {
                 _isBackCamera.value = !front
             }
+
+            override fun onSuccess(deviceName: String) {
+            }
         }
         _localVideoTrack.value?.switchCamera(callback)
     }
@@ -279,6 +282,10 @@ class ConferenceViewModel(application: Application) : AndroidViewModel(applicati
         }
         // Attach the callback to the media connection
         mediaConnection.registerPresentationRemoteVideoTrackListener(presentationVideoTrackListener)
+
+        // Enable video and audio main video tracks
+        mediaConnection.setMainRemoteVideoTrackEnabled(true)
+        mediaConnection.setMainRemoteAudioTrackEnabled(true)
 
         // Start the media connection.
         mediaConnection.start()
