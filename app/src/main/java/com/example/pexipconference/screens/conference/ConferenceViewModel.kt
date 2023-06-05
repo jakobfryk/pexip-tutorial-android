@@ -9,6 +9,9 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
+import com.example.pexipconference.R
+import com.example.pexipconference.vidhance.utils.getCalibration
+import com.example.pexipconference.vidhance.utils.getLicenseHandler
 import com.pexip.sdk.api.coroutines.await
 import com.pexip.sdk.api.infinity.InfinityService
 import com.pexip.sdk.api.infinity.RequestTokenRequest
@@ -19,6 +22,11 @@ import com.pexip.sdk.conference.PresentationStopConferenceEvent
 import com.pexip.sdk.conference.infinity.InfinityConference
 import com.pexip.sdk.media.*
 import com.pexip.sdk.media.webrtc.WebRtcMediaConnectionFactory
+import com.vidhance.appsdk.VidhanceBuilder
+import com.vidhance.appsdk.VidhanceInterface
+import com.vidhance.appsdk.VidhanceProcessor
+import com.vidhance.appsdk.handlers.SensorDataHandler
+import com.vidhance.inapp.solutions.vidhance.camera.VidhanceVideoCapture
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -36,8 +44,8 @@ class ConferenceViewModel(application: Application) : AndroidViewModel(applicati
     private lateinit var localAudioTrack: LocalAudioTrack
 
     // Local VideoTrack
-    private val _localVideoTrack = MutableLiveData<CameraVideoTrack>()
-    val localVideoTrack: LiveData<CameraVideoTrack>
+    private val _localVideoTrack = MutableLiveData<LocalVideoTrack>()
+    val localVideoTrack: LiveData<LocalVideoTrack>
         get() = _localVideoTrack
 
     // Remote VideoTrack
@@ -154,19 +162,6 @@ class ConferenceViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
-    fun onToggleCamera() {
-        val callback = object : CameraVideoTrack.SwitchCameraCallback {
-            override fun onFailure(error: String) {}
-            override fun onSuccess(front: Boolean) {
-                _isBackCamera.value = !front
-            }
-
-            override fun onSuccess(deviceName: String) {
-            }
-        }
-        _localVideoTrack.value?.switchCamera(callback)
-    }
-
     fun onToggleShareScreen() {
         _isSharingScreen.value = _isSharingScreen.value != true
     }
@@ -237,18 +232,35 @@ class ConferenceViewModel(application: Application) : AndroidViewModel(applicati
         })
     }
 
-    private fun getLocalMedia(): Pair<LocalAudioTrack, CameraVideoTrack> {
+    private fun getVidhanceInterface(): VidhanceInterface {
+        val vidhanceBuilder = VidhanceBuilder.DefaultConfiguration()
+            .setLicenseHandler(getLicenseHandler(getApplication(), R.raw.vidhance))
+            .setCalibrationHandler(getCalibration(getApplication(), R.raw.vidhance_calibration))
+            .setSensorDataHandler(SensorDataHandler(getApplication()))
+            .setMode(VidhanceProcessor.VidhanceMode.CLICK_AND_LOCK)
+            .useHardwareBuffers(true)
+
+        val vidhanceInterface = VidhanceInterface()
+        vidhanceInterface.configureVidhance(vidhanceBuilder)
+        return vidhanceInterface
+    }
+
+    private fun getLocalMedia(): Pair<LocalAudioTrack, LocalVideoTrack> {
         val audioTrack: LocalAudioTrack = webRtcMediaConnectionFactory.createLocalAudioTrack()
-        val videoTrack: CameraVideoTrack = webRtcMediaConnectionFactory.createCameraVideoTrack()
+
+        val vidhanceInterface = getVidhanceInterface()
+        val vidhanceVideoCapturer = VidhanceVideoCapture(0, 100, vidhanceInterface)
+        val videoTrack: LocalVideoTrack = webRtcMediaConnectionFactory.createLocalVideoTrack(vidhanceVideoCapturer)
+
         audioTrack.startCapture()
-        videoTrack.startCapture(QualityProfile.High)
+        videoTrack.startCapture(QualityProfile.VeryHigh)
         return audioTrack to videoTrack
     }
 
     private fun startWebRTCConnection(
         conference: InfinityConference,
         localAudioTrack: LocalAudioTrack,
-        localVideoTrack: CameraVideoTrack
+        localVideoTrack: LocalVideoTrack
     ) {
         // Define the STUN server. This is used for obtain the public IP of the participants
         // and this way be able to establish the media connection.
