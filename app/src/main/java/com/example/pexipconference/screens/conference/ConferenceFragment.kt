@@ -105,8 +105,8 @@ class ConferenceFragment : Fragment() {
     }
 
     private fun initializeVideoSurfaces() {
-        // Mirror the local video
-        binding.localVideoSurface.setMirror(true)
+        // In this demo we use the back camera so we don't want to mirror the surface
+        binding.localVideoSurface.setMirror(false)
 
         // Show all the video inside the container
         binding.mainVideoSurface.setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FIT)
