@@ -10,8 +10,6 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
 import com.example.pexipconference.R
-import com.example.pexipconference.vidhance.utils.getCalibration
-import com.example.pexipconference.vidhance.utils.getLicenseHandler
 import com.pexip.sdk.api.coroutines.await
 import com.pexip.sdk.api.infinity.InfinityService
 import com.pexip.sdk.api.infinity.RequestTokenRequest
@@ -25,7 +23,9 @@ import com.pexip.sdk.media.webrtc.WebRtcMediaConnectionFactory
 import com.vidhance.appsdk.VidhanceBuilder
 import com.vidhance.appsdk.VidhanceInterface
 import com.vidhance.appsdk.VidhanceProcessor
-import com.vidhance.appsdk.handlers.SensorDataHandler
+import com.vidhance.appsdk.utils.SensorDataCollector
+import com.vidhance.appsdk.utils.getCalibrationHandler
+import com.vidhance.appsdk.utils.getLicenseHandler
 import com.vidhance.inapp.solutions.vidhance.camera.VidhanceVideoCapture
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.Dispatchers
@@ -235,10 +235,9 @@ class ConferenceViewModel(application: Application) : AndroidViewModel(applicati
     private fun getVidhanceInterface(): VidhanceInterface {
         val vidhanceBuilder = VidhanceBuilder.DefaultConfiguration()
             .setLicenseHandler(getLicenseHandler(getApplication(), R.raw.vidhance))
-            .setCalibrationHandler(getCalibration(getApplication(), R.raw.vidhance_calibration))
-            .setSensorDataHandler(SensorDataHandler(getApplication()))
+            .setCalibrationHandler(getCalibrationHandler(getApplication(), R.raw.vidhance_calibration))
+            .setSensorDataHandler(SensorDataCollector(getApplication()))
             .setMode(VidhanceProcessor.VidhanceMode.CLICK_AND_LOCK)
-            .useHardwareBuffers(true)
 
         val vidhanceInterface = VidhanceInterface()
         vidhanceInterface.configureVidhance(vidhanceBuilder)
