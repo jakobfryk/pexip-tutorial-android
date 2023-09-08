@@ -15,6 +15,7 @@ import com.pexip.sdk.api.infinity.InfinityService
 import com.pexip.sdk.api.infinity.RequestTokenRequest
 import com.pexip.sdk.conference.ConferenceEventListener
 import com.pexip.sdk.conference.DisconnectConferenceEvent
+import com.pexip.sdk.conference.MessageListener
 import com.pexip.sdk.conference.PresentationStartConferenceEvent
 import com.pexip.sdk.conference.PresentationStopConferenceEvent
 import com.pexip.sdk.conference.infinity.InfinityConference
@@ -92,6 +93,9 @@ class ConferenceViewModel(application: Application) : AndroidViewModel(applicati
     private val _isSharingScreen = MutableLiveData<Boolean>()
     val isSharingScreen: LiveData<Boolean>
         get() = _isSharingScreen
+
+    // Vidhance interface for stabilizing frames
+    val _vidhanceInterface = VidhanceInterface()
 
     // Objects needed to initialize the conference
     private val webRtcMediaConnectionFactory: WebRtcMediaConnectionFactory
@@ -174,6 +178,31 @@ class ConferenceViewModel(application: Application) : AndroidViewModel(applicati
         _isPresentationInMain.value = _isPresentationInMain.value != true
     }
 
+    fun extractFloats(input: String): Pair<Float, Float>? {
+        val regex = Regex("""\b(0(\.\d*)?|1(\.0*)?),\s*(0(\.\d*)?|1(\.0*)?)\b""")
+        val match = regex.find(input)
+
+        if (match != null) {
+            val (firstNumber, secondNumber) = match.value.split(',')
+            try {
+                return Pair(firstNumber.toFloat(), secondNumber.toFloat())
+            } catch (e: NumberFormatException) {
+                e.printStackTrace()
+            }
+        }
+
+        return null
+    }
+
+    // Message listener
+    private val _messageListerner = MessageListener { message ->
+        val coordinates = extractFloats(message.payload)
+
+        if (coordinates != null) {
+            _vidhanceInterface.clickAndLockZoomAt(coordinates.first, coordinates.second)
+        }
+    }
+
     private suspend fun createConference(
         node: String,
         vmr: String,
@@ -206,6 +235,7 @@ class ConferenceViewModel(application: Application) : AndroidViewModel(applicati
                 response = response
             )
             configureConferenceListeners(conference)
+            conference.messenger.registerMessageListener(_messageListerner)
             return@withContext conference
         }
     }
@@ -216,15 +246,18 @@ class ConferenceViewModel(application: Application) : AndroidViewModel(applicati
                 is DisconnectConferenceEvent -> {
                     _isConnected.postValue(false)
                 }
+
                 is PresentationStartConferenceEvent -> {
                     mediaConnection.startPresentationReceive()
                     _isPresentationInMain.postValue(true)
                 }
+
                 is PresentationStopConferenceEvent -> {
                     mediaConnection.stopPresentationReceive()
                     _isPresentationInMain.postValue(false)
                     _presentationVideoTrack.postValue(null)
                 }
+
                 else -> {
                     Log.d("ConferenceViewModel", event.toString())
                 }
@@ -235,13 +268,12 @@ class ConferenceViewModel(application: Application) : AndroidViewModel(applicati
     private fun getVidhanceInterface(): VidhanceInterface {
         val vidhanceBuilder = VidhanceBuilder.DefaultConfiguration()
             .setLicenseHandler(getLicenseHandler(getApplication(), R.raw.vidhance))
-            .setCalibrationHandler(getCalibrationHandler(getApplication(), R.raw.vidhance_calibration))
+            .setCalibrationHandler(getCalibrationHandler(getApplication(), R.raw.vidhance_mi11i))
             .setSensorDataHandler(SensorDataCollector(getApplication()))
             .setMode(VidhanceProcessor.VidhanceMode.CLICK_AND_LOCK)
 
-        val vidhanceInterface = VidhanceInterface()
-        vidhanceInterface.configureVidhance(vidhanceBuilder)
-        return vidhanceInterface
+        _vidhanceInterface.configureVidhance(vidhanceBuilder)
+        return _vidhanceInterface
     }
 
     private fun getLocalMedia(): Pair<LocalAudioTrack, LocalVideoTrack> {
@@ -249,10 +281,11 @@ class ConferenceViewModel(application: Application) : AndroidViewModel(applicati
 
         val vidhanceInterface = getVidhanceInterface()
         val vidhanceVideoCapturer = VidhanceVideoCapture(0, 100, vidhanceInterface)
-        val videoTrack: LocalVideoTrack = webRtcMediaConnectionFactory.createLocalVideoTrack(vidhanceVideoCapturer)
+        val videoTrack: LocalVideoTrack =
+            webRtcMediaConnectionFactory.createLocalVideoTrack(vidhanceVideoCapturer)
 
         audioTrack.startCapture()
-        videoTrack.startCapture(QualityProfile.VeryHigh)
+        videoTrack.startCapture(QualityProfile.High)
         return audioTrack to videoTrack
     }
 
@@ -288,9 +321,10 @@ class ConferenceViewModel(application: Application) : AndroidViewModel(applicati
         mediaConnection.registerMainRemoteVideoTrackListener(mainRemoveVideTrackListener)
 
         // Define a callback method for when the presentation is received
-        val presentationVideoTrackListener = MediaConnection.RemoteVideoTrackListener { videoTrack ->
-            _presentationVideoTrack.postValue(videoTrack)
-        }
+        val presentationVideoTrackListener =
+            MediaConnection.RemoteVideoTrackListener { videoTrack ->
+                _presentationVideoTrack.postValue(videoTrack)
+            }
         // Attach the callback to the media connection
         mediaConnection.registerPresentationRemoteVideoTrackListener(presentationVideoTrackListener)
 
