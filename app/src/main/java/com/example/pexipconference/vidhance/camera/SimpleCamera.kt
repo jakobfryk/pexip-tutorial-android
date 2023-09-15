@@ -19,6 +19,7 @@ import android.util.DisplayMetrics
 import android.util.Log
 import android.util.Size
 import android.view.Surface
+import android.view.WindowManager
 import androidx.core.app.ActivityCompat
 import com.vidhance.appsdk.utils.CameraMetaDataBase
 import com.example.pexipconference.vidhance.interfaces.OnMetadataAvailableListener
@@ -162,7 +163,7 @@ class SimpleCamera(
 
     fun getResolutionToFitDisplay(resolution: Size): Size {
         val displayMetrics = DisplayMetrics()
-        (context as Activity).windowManager.defaultDisplay.getMetrics(displayMetrics)
+        (context.getSystemService(Context.WINDOW_SERVICE) as WindowManager).defaultDisplay.getMetrics(displayMetrics)
         val dsiWidth = displayMetrics.widthPixels
         var newWidth = dsiWidth
         var newHeight = dsiWidth * resolution.width / resolution.height

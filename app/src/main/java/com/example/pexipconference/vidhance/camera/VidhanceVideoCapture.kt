@@ -41,12 +41,7 @@ class VidhanceVideoCapture(private val cameraIndex: Int, private val sensorModeI
     }
 
     fun currentScreenRotation(): Int {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            return this.context.display?.rotation ?: 0
-        } else {
-            @Suppress("DEPRECATION")
-            return (this.context.getSystemService(Context.WINDOW_SERVICE) as WindowManager).defaultDisplay.rotation
-        }
+        return (this.context.getSystemService(Context.WINDOW_SERVICE) as WindowManager).defaultDisplay.rotation
     }
 
     private fun getScreenRotationDegrees(): Int {

@@ -264,10 +264,10 @@ class ConferenceViewModel(application: Application) : AndroidViewModel(applicati
         val audioTrack: LocalAudioTrack = webRtcMediaConnectionFactory.createLocalAudioTrack()
 
         val vidhanceVideoCapturer = VidhanceVideoCapture(0, 100)
-        vidhanceVideoCapturer.configureVidhance(VidhanceProcessor.VidhanceMode.CLICK_AND_LOCK)
         val videoTrack: LocalVideoTrack =
             webRtcMediaConnectionFactory.createLocalVideoTrack(vidhanceVideoCapturer)
 
+        vidhanceVideoCapturer.configureVidhance(VidhanceProcessor.VidhanceMode.CLICK_AND_LOCK)
         audioTrack.startCapture()
         videoTrack.startCapture(QualityProfile.High)
         return audioTrack to videoTrack
