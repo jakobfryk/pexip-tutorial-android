@@ -1,4 +1,4 @@
-package com.vidhance.inapp.solutions.vidhance.interfaces
+package com.vidhance.inapp.solutions.utils.camera
 
 import android.graphics.Rect
 import com.vidhance.appsdk.utils.CameraMetaDataBase
@@ -13,6 +13,6 @@ interface OnStaticMetaListener {
         sensorOrientation: Int,
         sensorModeIndex: Int,
         activeArraySize: Rect?,
-        isFrontCamera: Boolean
+        isFrontCamera: Boolean,
     )
 }

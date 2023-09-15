@@ -1,4 +1,4 @@
-package com.vidhance.inapp.solutions.utils
+package com.vidhance.inapp.solutions.utils.camera
 
 import android.Manifest
 import android.app.Activity
@@ -21,32 +21,34 @@ import android.util.Size
 import android.view.Surface
 import androidx.core.app.ActivityCompat
 import com.vidhance.appsdk.utils.CameraMetaDataBase
-import com.vidhance.inapp.solutions.vidhance.interfaces.OnMetadataAvailableListener
-import com.vidhance.inapp.solutions.vidhance.interfaces.OnStaticMetaListener
+import kotlin.math.ceil
+import kotlin.math.roundToInt
 
 class SimpleCamera(
     private val context: Context,
     private val characteristics: Map<CaptureRequest.Key<Int?>, Int>,
     private val cameraId: String,
-    private val sensorModeIndex: Int
+    private val sensorModeIndex: Int,
 ) {
-    private var previewBuilder: CaptureRequest.Builder? = null
-    private var cameraManager: CameraManager
-    private var cameraDevice: CameraDevice? = null
-    private var cameraCaptureSession: CameraCaptureSession? = null
-    private var surface: Surface? = null
-    private var backgroundThread: HandlerThread? = null
-    private var backgroundHandler: Handler? = null
-    private var metadataAvailableListener: OnMetadataAvailableListener? = null
-    var cameraCharacteristics: CameraCharacteristics
-    var resolution = Size(1280, 720)
-    var staticMetaListener: OnStaticMetaListener? = null
+    private lateinit var previewBuilder: CaptureRequest.Builder
+    private val cameraManager: CameraManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+    private lateinit var cameraDevice: CameraDevice
+    private lateinit var cameraCaptureSession: CameraCaptureSession
+    private lateinit var surface: Surface
+    private lateinit var backgroundThread: HandlerThread
+    private lateinit var backgroundHandler: Handler
+    private val cameraCharacteristics: CameraCharacteristics = cameraManager.getCameraCharacteristics(cameraId)
+    private lateinit var resolution: Size
+    private lateinit var staticMetaListener: OnStaticMetaListener
+    private lateinit var metadataAvailableListener: OnMetadataAvailableListener
 
-    fun setOnStaticMetaListener(listener: OnStaticMetaListener?) {
+    private var exposureOffsetSteps = 0 // Store the current exposure setting
+
+    fun setOnStaticMetaListener(listener: OnStaticMetaListener) {
         staticMetaListener = listener
     }
 
-    fun setOnMetadataAvailableListener(listener: OnMetadataAvailableListener?) {
+    fun setOnMetadataAvailableListener(listener: OnMetadataAvailableListener) {
         metadataAvailableListener = listener
     }
 
@@ -57,15 +59,13 @@ class SimpleCamera(
             timestamp: Long,
             frameNumber: Long,
         ) {
-            if (staticMetaListener != null) {
-                staticMetaListener!!.onStaticMetaUpdated(
-                    cameraId.toInt(),
-                    cameraCharacteristics.get(CameraCharacteristics.SENSOR_ORIENTATION)!!,
-                    sensorModeIndex,
-                    cameraCharacteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE),
-                    checkIfCameraIdIsFrontFacing()
-                )
-            }
+            staticMetaListener.onStaticMetaUpdated(
+                cameraId.toInt(),
+                cameraCharacteristics.get(CameraCharacteristics.SENSOR_ORIENTATION)!!,
+                sensorModeIndex,
+                cameraCharacteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE),
+                checkIfCameraIdIsFrontFacing(),
+            )
         }
 
         override fun onCaptureCompleted(
@@ -73,9 +73,7 @@ class SimpleCamera(
             request: CaptureRequest,
             result: TotalCaptureResult,
         ) {
-            if (metadataAvailableListener != null) {
-                metadataAvailableListener!!.onMetadataAvailable(CameraMetaDataBase(result, cameraCharacteristics, resolution))
-            }
+            metadataAvailableListener.onMetadataAvailable(CameraMetaDataBase(result, cameraCharacteristics, resolution))
         }
 
         override fun onCaptureFailed(
@@ -84,10 +82,6 @@ class SimpleCamera(
             failure: CaptureFailure,
         ) {
         }
-    }
-
-    fun setMetadataAvailableListener(listener: OnMetadataAvailableListener?) {
-        metadataAvailableListener = listener
     }
 
     fun openCamera(previewSurface: Surface, inputResolution: Size) {
@@ -105,25 +99,74 @@ class SimpleCamera(
     }
 
     fun closeCamera() {
-        if (cameraCaptureSession != null) {
-            cameraCaptureSession!!.close()
-            cameraCaptureSession = null
+        if (this::cameraCaptureSession.isInitialized) {
+            cameraCaptureSession.close()
         }
-        if (cameraDevice != null) {
-            cameraDevice!!.close()
-            cameraDevice = null
+        if (this::cameraDevice.isInitialized) {
+            cameraDevice.close()
         }
+    }
+
+    /**
+     * Sets the flashlight status
+     * @param status true to turn on the flashlight, false to turn it off
+     */
+    fun setFlashlight(status: Boolean) {
+        previewBuilder.set(CaptureRequest.FLASH_MODE, if (status) CaptureRequest.FLASH_MODE_TORCH else CaptureRequest.FLASH_MODE_OFF)
+        updatePreviewSession()
+    }
+
+    /**
+     * Changes the exposure offset by the given number of steps
+     * @param darker true to make the image darker, false to make it brighter
+     */
+    fun exposureOffsetChange(darker: Boolean) {
+        val evPerStep = cameraCharacteristics.get(CameraCharacteristics.CONTROL_AE_COMPENSATION_STEP)!!.toFloat()
+        val exposureOffsetStepsPerButtonPress = ceil(1.0 / (EXPOSURE_CLICKS_PER_EV * evPerStep)).toInt()
+        val maxExposureSteps = (EXPOSURE_MAX_OFFSET_EV / evPerStep).roundToInt()
+        val minExposureSteps = -(EXPOSURE_MAX_OFFSET_EV / evPerStep).roundToInt()
+
+        if (darker) {
+            if ((this.exposureOffsetSteps - exposureOffsetStepsPerButtonPress) < minExposureSteps) {
+                this.exposureOffsetSteps = minExposureSteps
+            } else {
+                this.exposureOffsetSteps -= exposureOffsetStepsPerButtonPress
+            }
+        } else { // brighter
+            if ((this.exposureOffsetSteps + exposureOffsetStepsPerButtonPress) > maxExposureSteps) {
+                this.exposureOffsetSteps = maxExposureSteps
+            } else {
+                this.exposureOffsetSteps += exposureOffsetStepsPerButtonPress
+            }
+        }
+        this.updateExposure()
+    }
+
+    /**
+     * Resets the exposure offset to 0
+     */
+    fun exposureOffsetReset() {
+        this.exposureOffsetSteps = 0
+        this.updateExposure()
+    }
+
+    /**
+     * Updates the exposure offset by sending the updated capture request to the camera
+     */
+    private fun updateExposure() {
+        previewBuilder.set(CaptureRequest.CONTROL_AE_EXPOSURE_COMPENSATION, this.exposureOffsetSteps)
+        updatePreviewSession()
     }
 
     fun getResolutionToFitDisplay(resolution: Size): Size {
         val displayMetrics = DisplayMetrics()
         (context as Activity).windowManager.defaultDisplay.getMetrics(displayMetrics)
-        val DSI_width = displayMetrics.widthPixels
-        var newWidth = DSI_width
-        var newHeight = DSI_width * resolution.width / resolution.height
+        val dsiWidth = displayMetrics.widthPixels
+        var newWidth = dsiWidth
+        var newHeight = dsiWidth * resolution.width / resolution.height
         if (resolution.width < resolution.height) {
-            newWidth = DSI_width
-            var tmp = DSI_width * resolution.height / resolution.width
+            newWidth = dsiWidth
+            val tmp = dsiWidth * resolution.height / resolution.width
             newHeight = tmp
         }
         return Size(newWidth, newHeight)
@@ -131,7 +174,7 @@ class SimpleCamera(
 
     val availablePreviewSizes: Array<Size>?
         get() = try {
-            val characteristics = cameraManager.getCameraCharacteristics(cameraId!!)
+            val characteristics = cameraManager.getCameraCharacteristics(cameraId)
             val map = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
             map!!.getOutputSizes(SurfaceTexture::class.java)
         } catch (e: CameraAccessException) {
@@ -154,15 +197,10 @@ class SimpleCamera(
             }
         }
 
-    init {
-        cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
-        cameraCharacteristics = cameraManager.getCameraCharacteristics(cameraId)
-    }
-
-    private fun checkIfCameraIdIsFrontFacing(): Boolean {
+    fun checkIfCameraIdIsFrontFacing(): Boolean {
         try {
             val characteristics =
-                cameraManager.getCameraCharacteristics(cameraId!!)
+                cameraManager.getCameraCharacteristics(cameraId)
             return characteristics.get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_FRONT
         } catch (e: CameraAccessException) {
             Log.e(TAG, "Failed to access camera: " + e.message)
@@ -171,25 +209,24 @@ class SimpleCamera(
     }
 
     private fun updatePreviewSession() {
-        if (cameraCaptureSession != null) {
-            val captureCallback: CameraCaptureSession.CaptureCallback =
-                CaptureCallback()
-            cameraCaptureSession!!.setRepeatingRequest(
-                previewBuilder!!.build(),
-                captureCallback,
-                backgroundHandler,)
-        }
+        // create instance of MyCaptureCallback class
+        val captureCallback: CameraCaptureSession.CaptureCallback = CaptureCallback()
+        cameraCaptureSession.setRepeatingRequest(
+            previewBuilder.build(),
+            captureCallback,
+            backgroundHandler,
+        )
     }
 
     private fun startPreview() {
-        previewBuilder = cameraDevice!!.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
+        previewBuilder = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
         for (key in characteristics.keys) {
-            previewBuilder!!.set(key, characteristics[key])
+            previewBuilder.set(key, characteristics[key])
         }
-        previewBuilder!!.addTarget(surface!!)
+        previewBuilder.addTarget(surface)
 
         try {
-            cameraDevice!!.createCaptureSession(
+            cameraDevice.createCaptureSession(
                 listOf(surface),
                 object : CameraCaptureSession.StateCallback() {
                     override fun onConfigured(session: CameraCaptureSession) {
@@ -213,24 +250,22 @@ class SimpleCamera(
 
     fun startBackgroundThread() {
         backgroundThread = HandlerThread("CameraBackground")
-        backgroundThread!!.start()
-        backgroundHandler = Handler(backgroundThread!!.looper)
+        backgroundThread.start()
+        backgroundHandler = Handler(backgroundThread.looper)
     }
 
     fun stopBackgroundThread() {
-        if (backgroundThread != null) {
-            backgroundThread!!.quitSafely()
-            try {
-                backgroundThread!!.join()
-                backgroundThread = null
-                backgroundHandler = null
-            } catch (e: InterruptedException) {
-                Log.e(TAG, "Interrupted while stopping background thread: " + e.message)
-            }
+        backgroundThread.quitSafely()
+        try {
+            backgroundThread.join()
+        } catch (e: InterruptedException) {
+            Log.e(TAG, "Interrupted while stopping background thread: " + e.message)
         }
     }
 
     companion object {
         private const val TAG = "Camera2"
+        private const val EXPOSURE_MAX_OFFSET_EV = 5
+        private const val EXPOSURE_CLICKS_PER_EV = 3
     }
 }
