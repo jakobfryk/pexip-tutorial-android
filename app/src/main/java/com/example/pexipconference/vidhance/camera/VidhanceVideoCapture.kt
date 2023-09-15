@@ -1,4 +1,4 @@
-package com.vidhance.inapp.solutions.utils.vidhancewebrtc
+package com.example.pexipconference.vidhance.camera
 
 import android.content.Context
 import android.graphics.Rect
@@ -9,6 +9,7 @@ import android.os.Build
 import android.util.Log
 import android.view.Surface
 import android.view.WindowManager
+import com.example.pexipconference.R
 import com.vidhance.appsdk.VidhanceBuilder
 import com.vidhance.appsdk.VidhanceInterface
 import com.vidhance.appsdk.VidhanceProcessor
@@ -16,11 +17,8 @@ import com.vidhance.appsdk.utils.CameraMetaDataBase
 import com.vidhance.appsdk.utils.SensorDataCollector
 import com.vidhance.appsdk.utils.getCalibrationHandler
 import com.vidhance.appsdk.utils.getLicenseHandler
-import com.vidhance.inapp.solutions.R
-import com.vidhance.inapp.solutions.utils.DeviceConfiguration
-import com.vidhance.inapp.solutions.utils.camera.OnMetadataAvailableListener
-import com.vidhance.inapp.solutions.utils.camera.OnStaticMetaListener
-import com.vidhance.inapp.solutions.utils.camera.SimpleCamera
+import com.example.pexipconference.vidhance.interfaces.OnMetadataAvailableListener
+import com.example.pexipconference.vidhance.interfaces.OnStaticMetaListener
 import org.webrtc.CapturerObserver
 import org.webrtc.Size
 import org.webrtc.SurfaceTextureHelper
@@ -110,7 +108,7 @@ class VidhanceVideoCapture(private val cameraIndex: Int, private val sensorModeI
     fun configureVidhance(mode: VidhanceProcessor.VidhanceMode) {
         val vidhanceBuilder = VidhanceBuilder.DefaultConfiguration()
             .setLicenseHandler(getLicenseHandler(this.context, R.raw.vidhance))
-            .setCalibrationHandler(getCalibrationHandler(this.context, DeviceConfiguration.calibrationResourceId))
+            .setCalibrationHandler(getCalibrationHandler(this.context, R.raw.vidhance_calibration))
             .setSensorDataHandler(SensorDataCollector(this.context))
             .setMode(mode)
 

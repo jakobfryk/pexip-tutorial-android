@@ -9,7 +9,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
-import com.example.pexipconference.R
+import com.example.pexipconference.vidhance.camera.VidhanceVideoCapture
 import com.pexip.sdk.api.coroutines.await
 import com.pexip.sdk.api.infinity.InfinityService
 import com.pexip.sdk.api.infinity.RequestTokenRequest
@@ -21,13 +21,8 @@ import com.pexip.sdk.conference.PresentationStopConferenceEvent
 import com.pexip.sdk.conference.infinity.InfinityConference
 import com.pexip.sdk.media.*
 import com.pexip.sdk.media.webrtc.WebRtcMediaConnectionFactory
-import com.vidhance.appsdk.VidhanceBuilder
 import com.vidhance.appsdk.VidhanceInterface
 import com.vidhance.appsdk.VidhanceProcessor
-import com.vidhance.appsdk.utils.SensorDataCollector
-import com.vidhance.appsdk.utils.getCalibrationHandler
-import com.vidhance.appsdk.utils.getLicenseHandler
-import com.vidhance.inapp.solutions.vidhance.camera.VidhanceVideoCapture
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -265,22 +260,11 @@ class ConferenceViewModel(application: Application) : AndroidViewModel(applicati
         })
     }
 
-    private fun getVidhanceInterface(): VidhanceInterface {
-        val vidhanceBuilder = VidhanceBuilder.DefaultConfiguration()
-            .setLicenseHandler(getLicenseHandler(getApplication(), R.raw.vidhance))
-            .setCalibrationHandler(getCalibrationHandler(getApplication(), R.raw.vidhance_mi11i))
-            .setSensorDataHandler(SensorDataCollector(getApplication()))
-            .setMode(VidhanceProcessor.VidhanceMode.CLICK_AND_LOCK)
-
-        _vidhanceInterface.configureVidhance(vidhanceBuilder)
-        return _vidhanceInterface
-    }
-
     private fun getLocalMedia(): Pair<LocalAudioTrack, LocalVideoTrack> {
         val audioTrack: LocalAudioTrack = webRtcMediaConnectionFactory.createLocalAudioTrack()
 
-        val vidhanceInterface = getVidhanceInterface()
-        val vidhanceVideoCapturer = VidhanceVideoCapture(0, 100, vidhanceInterface)
+        val vidhanceVideoCapturer = VidhanceVideoCapture(0, 100)
+        vidhanceVideoCapturer.configureVidhance(VidhanceProcessor.VidhanceMode.CLICK_AND_LOCK)
         val videoTrack: LocalVideoTrack =
             webRtcMediaConnectionFactory.createLocalVideoTrack(vidhanceVideoCapturer)
 

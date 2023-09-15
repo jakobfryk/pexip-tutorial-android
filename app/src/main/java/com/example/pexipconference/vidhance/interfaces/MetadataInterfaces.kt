@@ -1,4 +1,4 @@
-package com.vidhance.inapp.solutions.utils.camera
+package com.example.pexipconference.vidhance.interfaces
 
 import android.graphics.Rect
 import com.vidhance.appsdk.utils.CameraMetaDataBase

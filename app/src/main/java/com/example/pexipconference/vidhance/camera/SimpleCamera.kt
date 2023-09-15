@@ -1,4 +1,4 @@
-package com.vidhance.inapp.solutions.utils.camera
+package com.example.pexipconference.vidhance.camera
 
 import android.Manifest
 import android.app.Activity
@@ -21,6 +21,8 @@ import android.util.Size
 import android.view.Surface
 import androidx.core.app.ActivityCompat
 import com.vidhance.appsdk.utils.CameraMetaDataBase
+import com.example.pexipconference.vidhance.interfaces.OnMetadataAvailableListener
+import com.example.pexipconference.vidhance.interfaces.OnStaticMetaListener
 import kotlin.math.ceil
 import kotlin.math.roundToInt
 
