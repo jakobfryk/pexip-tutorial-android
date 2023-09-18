@@ -18,6 +18,7 @@ import com.vidhance.appsdk.utils.getCalibrationHandler
 import com.vidhance.appsdk.utils.getLicenseHandler
 import com.example.pexipconference.vidhance.interfaces.OnMetadataAvailableListener
 import com.example.pexipconference.vidhance.interfaces.OnStaticMetaListener
+import com.example.pexipconference.vidhance.utils.DeviceConfiguration
 import org.webrtc.CapturerObserver
 import org.webrtc.Size
 import org.webrtc.SurfaceTextureHelper
@@ -60,6 +61,7 @@ class VidhanceVideoCapture(private val cameraIndex: Int, private val sensorModeI
 
     override fun initialize(surfaceTextureHelper: SurfaceTextureHelper, context: Context, observer: CapturerObserver) {
         this.context = context
+        DeviceConfiguration.initDeviceConfiguration(context)
         configureVidhance(VidhanceProcessor.VidhanceMode.CLICK_AND_LOCK)
         this.surfaceTextureHelper = surfaceTextureHelper
         observer.onCapturerStarted(true)
@@ -88,7 +90,8 @@ class VidhanceVideoCapture(private val cameraIndex: Int, private val sensorModeI
 
     override fun dispose() {
         deInitCamera()
-        surfaceTextureHelper.dispose()
+        if (this::surfaceTextureHelper.isInitialized)
+            surfaceTextureHelper.dispose()
         vidhanceInterface.deinitialize()
     }
 
@@ -103,7 +106,7 @@ class VidhanceVideoCapture(private val cameraIndex: Int, private val sensorModeI
     fun configureVidhance(mode: VidhanceProcessor.VidhanceMode) {
         val vidhanceBuilder = VidhanceBuilder.DefaultConfiguration()
             .setLicenseHandler(getLicenseHandler(this.context, R.raw.vidhance))
-            .setCalibrationHandler(getCalibrationHandler(this.context, R.raw.vidhance_calibration))
+            .setCalibrationHandler(getCalibrationHandler(this.context, DeviceConfiguration.calibrationResourceId))
             .setSensorDataHandler(SensorDataCollector(this.context))
             .setMode(mode)
 
