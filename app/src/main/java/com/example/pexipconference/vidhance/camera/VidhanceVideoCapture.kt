@@ -5,7 +5,6 @@ import android.graphics.Rect
 import android.graphics.SurfaceTexture
 import android.hardware.camera2.CameraAccessException
 import android.hardware.camera2.CaptureRequest
-import android.os.Build
 import android.util.Log
 import android.view.Surface
 import android.view.WindowManager
@@ -61,6 +60,7 @@ class VidhanceVideoCapture(private val cameraIndex: Int, private val sensorModeI
 
     override fun initialize(surfaceTextureHelper: SurfaceTextureHelper, context: Context, observer: CapturerObserver) {
         this.context = context
+        configureVidhance(VidhanceProcessor.VidhanceMode.CLICK_AND_LOCK)
         this.surfaceTextureHelper = surfaceTextureHelper
         observer.onCapturerStarted(true)
 

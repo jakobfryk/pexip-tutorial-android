@@ -21,8 +21,6 @@ import com.pexip.sdk.conference.PresentationStopConferenceEvent
 import com.pexip.sdk.conference.infinity.InfinityConference
 import com.pexip.sdk.media.*
 import com.pexip.sdk.media.webrtc.WebRtcMediaConnectionFactory
-import com.vidhance.appsdk.VidhanceInterface
-import com.vidhance.appsdk.VidhanceProcessor
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -89,8 +87,8 @@ class ConferenceViewModel(application: Application) : AndroidViewModel(applicati
     val isSharingScreen: LiveData<Boolean>
         get() = _isSharingScreen
 
-    // Vidhance interface for stabilizing frames
-    val _vidhanceInterface = VidhanceInterface()
+    // VideoCapture for Vidhance
+    private val vidhanceVideoCapturer: VidhanceVideoCapture = VidhanceVideoCapture(0, 100)
 
     // Objects needed to initialize the conference
     private val webRtcMediaConnectionFactory: WebRtcMediaConnectionFactory
@@ -194,7 +192,7 @@ class ConferenceViewModel(application: Application) : AndroidViewModel(applicati
         val coordinates = extractFloats(message.payload)
 
         if (coordinates != null) {
-            _vidhanceInterface.clickAndLockZoomAt(coordinates.first, coordinates.second)
+            vidhanceVideoCapturer.handleClickInput(coordinates.first, coordinates.second)
         }
     }
 
@@ -263,11 +261,8 @@ class ConferenceViewModel(application: Application) : AndroidViewModel(applicati
     private fun getLocalMedia(): Pair<LocalAudioTrack, LocalVideoTrack> {
         val audioTrack: LocalAudioTrack = webRtcMediaConnectionFactory.createLocalAudioTrack()
 
-        val vidhanceVideoCapturer = VidhanceVideoCapture(0, 100)
         val videoTrack: LocalVideoTrack =
             webRtcMediaConnectionFactory.createLocalVideoTrack(vidhanceVideoCapturer)
-
-        vidhanceVideoCapturer.configureVidhance(VidhanceProcessor.VidhanceMode.CLICK_AND_LOCK)
         audioTrack.startCapture()
         videoTrack.startCapture(QualityProfile.High)
         return audioTrack to videoTrack

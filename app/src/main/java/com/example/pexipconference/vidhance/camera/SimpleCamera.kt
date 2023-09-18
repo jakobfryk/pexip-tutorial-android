@@ -1,7 +1,6 @@
 package com.example.pexipconference.vidhance.camera
 
 import android.Manifest
-import android.app.Activity
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.SurfaceTexture
