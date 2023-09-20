@@ -100,10 +100,9 @@ class ConferenceViewModel(application: Application) : AndroidViewModel(applicati
     init {
         // Create the webRtcMediaConnectionFactory
         WebRtcMediaConnectionFactory.initialize(application)
-        webRtcMediaConnectionFactory = WebRtcMediaConnectionFactory(
-            context = application,
-            eglBase = eglBase
-        )
+        webRtcMediaConnectionFactory = WebRtcMediaConnectionFactory.Builder(application)
+            .eglBase(eglBase)
+            .build()
     }
 
     override fun onCleared() {
@@ -276,7 +275,7 @@ class ConferenceViewModel(application: Application) : AndroidViewModel(applicati
         // Define the STUN server. This is used for obtain the public IP of the participants
         // and this way be able to establish the media connection.
         val iceServer = IceServer.Builder("stun:stun.l.google.com:19302").build()
-        val config = MediaConnectionConfig.Builder(conference)
+        val config = MediaConnectionConfig.Builder(conference.signaling)
             .addIceServer(iceServer)
             .presentationInMain(false)
             .build()
